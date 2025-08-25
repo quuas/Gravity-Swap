@@ -1,0 +1,899 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gravity Swap — Deluxe</title>
+  <style>
+    :root{ --bg:#0b0f1a; --fg:#e6edf3; --muted:#9aa4b2; --accent:#6ee7ff; --solid:#1f2a44; --danger:#ff5d73; --goal:#a3ff85; --coin:#ffd166; }
+    html,body{height:100%;}
+    body{margin:0; background:radial-gradient(1200px 800px at 10% -10%, #132033 0%, #0b0f1a 50%, #081019 100%); color:var(--fg); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; display:grid; place-items:center}
+    .wrap{display:grid; gap:12px; padding:16px; width:min(100vw, 1100px)}
+    .topbar{display:flex; align-items:center; justify-content:space-between; gap:12px}
+    .title{font-weight:700; letter-spacing:.4px}
+    .hud{display:flex; gap:10px; align-items:center; font-variant-numeric: tabular-nums; flex-wrap:wrap}
+    .pill{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); padding:6px 10px; border-radius:999px}
+    .btn{cursor:pointer; user-select:none}
+    canvas{image-rendering: pixelated; background:
+      radial-gradient(800px 400px at 70% 10%, rgba(110,231,255,.10), transparent 60%),
+      linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0) 120px);
+      box-shadow: 0 10px 40px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.06);
+      border-radius:18px; display:block; width:100%; max-height:72vh;}
+    .footer{opacity:.8; font-size:12px; text-align:center; margin-top:6px}
+
+    /* Modals */
+    .modal{position:fixed; inset:0; display:none; place-items:center; background:rgba(3,6,12,.6); backdrop-filter:saturate(120%) blur(6px); z-index:10}
+    .modal.show{display:grid}
+    .card{width:min(92vw, 640px); background:#0e1526; border:1px solid #1b2442; border-radius:16px; box-shadow: 0 10px 40px rgba(0,0,0,.5); padding:18px 18px 16px}
+    .card h3{margin:0 0 8px}
+    .row{display:flex; gap:10px; align-items:center; margin:8px 0}
+    .row label{width:140px; color:var(--muted)}
+    input, select{background:#0b1120; border:1px solid #1c2747; color:var(--fg); padding:10px 12px; border-radius:10px; width:100%}
+    .actions{display:flex; justify-content:flex-end; gap:10px; margin-top:8px}
+    .ghost{background:transparent; border:1px solid #2b3861; color:var(--fg); padding:8px 12px; border-radius:10px; cursor:pointer}
+    .primary{background:linear-gradient(45deg,#6ee7ff,#3b82f6); border:none; color:#001024; padding:10px 14px; border-radius:12px; font-weight:700; cursor:pointer}
+
+    /* Menu screen */
+    #screenMenu{display:grid; gap:16px; padding:12px}
+    .hero{display:grid; place-items:center; gap:10px; padding:24px 0}
+    .brand{font-size:40px; font-weight:900; letter-spacing:.5px}
+    .subtitle{color:#9aa4b2}
+    .grid{display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px}
+    .section{background:#0e1526; border:1px solid #1b2442; border-radius:16px; padding:14px}
+
+    table{width:100%; border-collapse:collapse}
+    th,td{padding:8px 10px; border-bottom:1px solid rgba(255,255,255,.06); text-align:left}
+    th{color:#b8c2d5; font-weight:600}
+    .help{display:flex; flex-wrap:wrap; gap:8px; align-items:center; color:#9aa4b2}
+    kbd{background:#0f1526; border:1px solid #1b2640; padding:2px 6px; border-radius:6px; box-shadow: inset 0 -2px 0 rgba(0,0,0,.2); font-weight:600}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="title">⚡ Gravity Swap — <span id="levelName">Main Menu</span></div>
+      <div class="hud">
+        <div class="pill">⏱ <span id="time">0.00</span>s</div>
+        <div class="pill">💀 <span id="deaths">0</span></div>
+        <div class="pill">⬇️ <span id="grav">Down</span></div>
+        <div class="pill">🪙 <span id="coins">0/0</span></div>
+        <div class="pill btn" id="reset">Reset (R)</div>
+        <div class="pill btn" id="toggleSound">🔊</div>
+        <div class="pill btn" id="btnBoard">🏆 Leaderboard</div>
+        <div class="pill btn" id="btnAuth">👤 <span id="who">Guest</span></div>
+      </div>
+    </div>
+
+    <!-- MENU SCREEN (separate page-like) -->
+    <div id="screenMenu">
+      <div class="hero">
+        <div class="brand">GRAVITY SWAP</div>
+        <div class="subtitle">Reverse the pull. Master the maze.</div>
+        <div style="display:flex; gap:10px; margin-top:8px">
+          <button class="primary" id="playBtn">▶ Play</button>
+          <button class="ghost" id="tutorialBtn">🎓 Tutorial</button>
+          <button class="ghost" id="levelSelectBtn">🗺 Levels</button>
+          <button class="ghost" id="statsBtn">📈 My Stats</button>
+          <button class="ghost" id="leaderBtn">🏆 Leaderboard</button>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="section">
+          <h3 style="margin:0 0 6px">Controls</h3>
+          <div class="help">
+            <div>Move: <kbd>←</kbd><kbd>→</kbd></div>
+            <div>Jump: <kbd>Space</kbd> / <kbd>↑</kbd></div>
+            <div>Set Gravity: <kbd>W</kbd>=Up, <kbd>A</kbd>=Left, <kbd>S</kbd>=Down, <kbd>D</kbd>=Right</div>
+            <div>Restart level: <kbd>R</kbd></div>
+            <div>Pause: <kbd>P</kbd></div>
+          </div>
+        </div>
+        <div class="section">
+          <h3 style="margin:0 0 6px">Progress</h3>
+          <div id="progressMini" class="subtitle">No data yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <canvas id="game" width="960" height="640" style="display:none"></canvas>
+
+    <div class="footer">Complete levels to unlock the next. Levels screen shows locks. ✨</div>
+  </div>
+
+  <!-- Finish Modal -->
+  <div class="modal" id="finishModal" role="dialog" aria-modal="true">
+    <div class="card">
+      <h3>✅ Level Complete</h3>
+      <div id="finishStats" style="margin:6px 0 10px;color:#b8c2d5"></div>
+      <div class="actions">
+        <button class="ghost" id="replayLvl">Replay (R)</button>
+        <button class="primary" id="nextLvl">Next Level (N)</button>
+        <button class="ghost" id="toMenu">Main Menu (Esc)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth Modal -->
+  <div class="modal" id="authModal" role="dialog" aria-modal="true">
+    <div class="card">
+      <h3>👤 Sign in / Register</h3>
+      <div class="row"><label>Username</label><input id="iUser" placeholder="nickname" /></div>
+      <div class="row"><label>Password</label><input id="iPass" type="password" placeholder="••••••••" /></div>
+      <div class="actions">
+        <button class="ghost" id="btnCloseAuth" style="margin-right:auto">Close</button>
+        <button class="ghost" id="btnLogout" style="margin-right:auto;display:none">Log out</button>
+        <button class="ghost" id="btnRegister">Register</button>
+        <button class="primary" id="btnLogin">Sign in</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaderboard Modal -->
+  <div class="modal" id="boardModal" role="dialog" aria-modal="true">
+    <div class="card">
+      <h3>🏆 Leaderboard</h3>
+      <div class="row">
+        <select id="boardMode"></select>
+      </div>
+      <div id="boardTableWrap"></div>
+      <div class="actions">
+        <button class="ghost" id="boardClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Level Select Modal -->
+  <div class="modal" id="selectModal" role="dialog" aria-modal="true">
+    <div class="card">
+      <h3>🗺 Level Select</h3>
+      <div id="levelsGrid" style="display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:10px; margin-top:8px"></div>
+      <div class="actions">
+        <button class="ghost" id="selectClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Modal -->
+  <div class="modal" id="statsModal" role="dialog" aria-modal="true">
+    <div class="card">
+      <h3>📈 My Stats</h3>
+      <div id="statsWrap"></div>
+      <div class="actions"><button class="ghost" id="statsClose">Close</button></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // =================== CONFIG ===================
+  const TILE = 32;
+  const GRAVITIES = [ {x:0,y:1,name:'Down',emoji:'⬇️'}, {x:-1,y:0,name:'Left',emoji:'⬅️'}, {x:0,y:-1,name:'Up',emoji:'⬆️'}, {x:1,y:0,name:'Right',emoji:'➡️'} ];
+  const SPEED = 230; const JUMP = 390; const ACCEL_AIR = 1400; const FRICTION = 1800; const SWAP_COOLDOWN = 140;
+  const API_BASE = '';
+
+  // =================== LEVELS (tuned to be tough but fair) ===================
+  // Legend: # wall, . empty, S start, G goal, * coin, ^ v < > spikes
+  // --- Tutorial (не влияет на прогресс/разблокировки) ---
+  const tutorialLevel = {
+    name: 'Tutorial',
+    map: [
+      '################################',
+      '#S.................*.........G#',
+      '#..............................#',
+      '#..............................#',
+      '#..............................#',
+      '#..............................#',
+      '#..............................#',
+      '#..............................#',
+      '#..............................#',
+      '#..............................#',
+      '#..............................#',
+      '#..............................#',
+      '#..............................#',
+      '#..............................#',
+      '################################'
+    ]
+  };
+  
+  const levels = [
+    { name: 'Training Grounds', map:[
+      '################################',
+      '#.............*...............G#',
+      '#..............................#',
+      '#...........#######............#',
+      '#.......................^......#',
+      '#..............#####...........#',
+      '#..............#...#...........#',
+      '#...S..........#...#......*....#',
+      '#..............#...#...........#',
+      '#......<.......#...#########...#',
+      '#..............#...............#',
+      '#.....*.....................>..#',
+      '#..............v...............#',
+      '#..............................#',
+      '################################'] },
+    { name: 'Crosswise Caverns', map:[
+      '################################',
+      '#S.............#####...........#',
+      '#..............#...#...........#',
+      '#...........*..#...#....*......#',
+      '#..............#...#...........#',
+      '#..#########...#...#######.....#',
+      '#..#.......#.............#.....#',
+      '#..#..^....#######..v....#...G.#',
+      '#..#.....................#.....#',
+      '#..#######..<....>..######.....#',
+      '#..............#...............#',
+      '#......*.......#...............#',
+      '#..............#...............#',
+      '#..............................#',
+      '################################'] },
+    { name: 'Vertical Lab', map:[
+      '################################',
+      '#...........#.................G#',
+      '#..S........#...........^......#',
+      '#...........#.........#####....#',
+      '#..#####....#..................#',
+      '#..#...#....#..*..............#',
+      '#..#...#....#######...........#',
+      '#..#...#............v.........#',
+      '#..#...#########..............#',
+      '#..#...........#..............#',
+      '#..#..<....>...#..............#',
+      '#..#...........#..............#',
+      '#..#########...#..............#',
+      '#.....................*.......#',
+      '################################'] },
+    { name: 'Rotator Gauntlet', map:[
+      '################################',
+      '#S...#....^.............#.....#',
+      '#...##...........*......#.....#',
+      '#........<....######....#..G..#',
+      '###.#######.............#.....#',
+      '#...........#####.......#.....#',
+      '#...*...........#..........^..#',
+      '#..............v#............##',
+      '#..######.......#.............#',
+      '#..<....>.......#.............#',
+      '#...............#.............#',
+      '#...............#.............#',
+      '#...............#.............#',
+      '#...............#.............#',
+      '################################'] },
+    { name: 'Final Switchyard', map:[
+      '################################',
+      '#S....*....#####.....*......G.#',
+      '#.########.#...#.###########..#',
+      '#.#......#.#...#.#.........#..#',
+      '#.#.^..v.#.#...#.#..^..v...#..#',
+      '#.#......#.#...#.#.........#..#',
+      '#.########.#...#.###########..#',
+      '#..........#...#..............#',
+      '#..*.......#...#....*.........#',
+      '#..........#...#..............#',
+      '#.##########...###########....#',
+      '#..............................#',
+      '#..<....>.............<....>..#',
+      '#..............................#',
+      '################################'] },
+    // EXTRA HARD — adjusted for fairness
+    { name: 'Gravity Weave', map:[
+    '################################',
+    '#S...>...#..*......<.......G..#',
+    '#.#####..#.###v#..#####.#.###v#',
+    '#.....#..#...#.#..#...#.#...#.#',
+    '###.#.#..###.#.#..#*#.#.###^#.#',
+    '#...#.#..*.....#..#^#.#...###.#',
+    '#.###.###^###.#>.####.#.###.#.#',
+    '#.#...#...<...#>....#...#v#.#.#',
+    '#.#.###.#.###.#####.###...#.#.#',
+    '#.#...#.#...#.....#...#.#...#.#',
+    '#.#^#.#.###.#.###.#.#.#.###.#.#',
+    '#...#.#...#..*<.#^..#.#^......#',
+    '###.#.###.#.#^#.###.#.#####.###',
+    '>...#.....<.....#*..#........<#',
+    '################################'] },
+      
+    { name: 'Pinwheel (Fair)', map:[
+      '################################',
+      '#..S..#..^..........^..#....G.#',
+      '#....#.....#..*..#.....#......#',
+      '#.####.###.#######.###.####...#',
+      '#.*..#.#...#..*..#.#...#..*...#',
+      '#....#.#...#.###.#.#...#....^.#',
+      '#....#.#...#.....#.#...#......#',
+      '#.##.^####...###...#####.###.##',
+      '#....#^#...#.....#.#...#......#',
+      '#^...#*#.>.#..^..#.#.<.#......#',
+      '#.*>.#.#...#..*..#.#...#..*...#',
+      '#.####.###.#######.###.####...#',
+      '#..........#.....#.....#......#',
+      '#v...#..v..#..v..#..v.........#',
+      '################################'] },
+    { name: 'The Gauntlet (Fair)', map:[
+      '################################',
+      '#S..^..#......*......#..^...G.#',
+      '#.#.#..#..###....###..#..#.#..#',
+      '#.#.#..#..#..^^..#....#..#.#..#',
+      '#.#.#..#..#......#....#..#.#..#',
+      '#...#..#..#####..#....#..#....#',
+      '#.^.#..#..............#..#.^..#',
+      '#...#..####..####..####..#....#',
+      '#.#.#......*....*........#.#..#',
+      '#.#.########..##..########.#..#',
+      '#.#.........................#..#',
+      '#.############################.#',
+      '#..............................#',
+      '#..............................#',
+      '################################'] },
+    { name: 'Edge of Control (Lite)', map:[
+      '################################',
+      '#S###...###.^.###...###...###G#',
+      '#...#.#.#...#.#.#...#.#.#...#.#',
+      '###.#.#.###.#.#.###.#.#.###.#.#',
+      '#...#.#...#.#.#...#.#.#...#.#.#',
+      '#.###.###.#.#.###.#.#.###.#.#.#',
+      '#...#...#.#.#...#.#.#...#.#.#.#',
+      '#...###.#.#.###.#.#.###.#.#.#.#',
+      '#...#...#.#...#.#.#...#.#.#...#',
+      '###.###.#.###.#.#.###.#.#.###.#',
+      '#...#...#...#.#.#...#.#.#...#.#',
+      '#...#.^.###...###.^.###...###.#',
+      '#...#.#.#...#.#.#...#.#.#...#.#',
+      '#.^.#.#.###.#.#.###.#.#.###.#.#',
+      '################################'] },
+  ];
+    
+  // =================== CANVAS & INPUT ===================
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const keys = new Set();
+  const down = e => {
+    if (mode === 'menu') return; // не трогаем меню
+    const k = e.key.toLowerCase();
+    keys.add(k);
+    if ([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
+  };
+  const up = e => {
+    if (mode === 'menu') return; // не трогаем меню
+    keys.delete(e.key.toLowerCase());
+  };
+  window.addEventListener('keydown', down, { passive:false });
+  window.addEventListener('keyup', up);
+
+  // (3) Очистка при потере фокуса
+  window.addEventListener('blur', ()=>{ keys.clear(); pressed.clear(); });
+
+  function fitCanvas(){
+    const dpr = window.devicePixelRatio||1;
+    const maxW = Math.min(window.innerWidth-32,1100);
+    const maxH = Math.min(window.innerHeight-220,720);
+    const {W,H} = state?.world || {W:30,H:20};
+    const aspect = (W*TILE)/(H*TILE);
+    const cssW = Math.floor(Math.min(maxW, maxH*aspect));
+    const cssH = Math.floor(cssW/aspect);
+    canvas.style.width = cssW+'px';
+    canvas.style.height = cssH+'px';
+    canvas.width = Math.round(cssW*dpr); canvas.height = Math.round(cssH*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  new ResizeObserver(fitCanvas).observe(canvas); window.addEventListener('resize', fitCanvas);
+
+  // =================== SETTINGS (2) ===================
+  const SETTINGS_KEY = 'gs_settings';
+  let settings = { mute:false, reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches };
+  try{ Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')); }catch(e){}
+  const saveSettings = ()=> localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+
+  // =================== AUDIO ===================
+  const Audio = (()=>{
+    const AC = window.AudioContext || window.webkitAudioContext; const ctxA = new AC();
+    const master = ctxA.createGain(); master.gain.value = settings.mute ? 0 : 0.3; master.connect(ctxA.destination);
+    function env(node, t=0.02, s=0.08, r=0.12){ const now=ctxA.currentTime; node.gain.setValueAtTime(0,now); node.gain.linearRampToValueAtTime(1,now+t); node.gain.linearRampToValueAtTime(0.6, now+t+s); node.gain.exponentialRampToValueAtTime(0.0001, now+t+s+r); }
+    function beep(freq=440, dur=0.18, type='sine'){ const o=ctxA.createOscillator(); const g=ctxA.createGain(); o.type=type; o.frequency.value=freq; o.connect(g); g.connect(master); env(g,0.01,dur*0.6, dur*0.4); o.start(); o.stop(ctxA.currentTime+dur+0.2); }
+    function chord(freqs=[440,554,659], dur=0.4){ freqs.forEach((f,i)=> setTimeout(()=>beep(f, dur, 'triangle'), i*15)); }
+    function click(){ beep(220,0.05,'square'); }
+    function coin(){ beep(880,0.1,'square'); setTimeout(()=>beep(1320,0.1,'square'),60); }
+    function whoosh(){ const o=ctxA.createOscillator(); const g=ctxA.createGain(); o.type='sawtooth'; o.frequency.setValueAtTime(220, ctxA.currentTime); o.frequency.exponentialRampToValueAtTime(1100, ctxA.currentTime+0.2); o.connect(g); g.connect(master); env(g,0.01,0.15,0.1); o.start(); o.stop(ctxA.currentTime+0.35); }
+    function death(){ const b=ctxA.createBuffer(1, ctxA.sampleRate*0.25, ctxA.sampleRate); const d=b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/ (ctxA.sampleRate*0.1)); const s=ctxA.createBufferSource(); s.buffer=b; const g=ctxA.createGain(); g.gain.value=0.5; s.connect(g); g.connect(master); g.gain.exponentialRampToValueAtTime(0.001, ctxA.currentTime+0.25); s.start(); }
+    function portal(){ chord([392,523,659],0.35); setTimeout(()=>chord([523,659,784],0.35),140); }
+    function resume(){ ctxA.resume?.(); }
+    function setMute(v){ settings.mute = !!v; master.gain.value = settings.mute ? 0 : 0.3; saveSettings(); }
+    return {beep, chord, click, coin, whoosh, death, portal, resume, setMute};
+  })();
+
+  // =================== PARTICLES ===================
+  const particles = [];
+  function spawnBurst(x,y, color='#6ee7ff', count=16, speed=120){
+    if (settings.reduceMotion) return;
+    for(let i=0;i<count;i++){
+      const a=Math.random()*Math.PI*2; const v=speed*(0.5+Math.random());
+      particles.push({x,y, vx:Math.cos(a)*v, vy:Math.sin(a)*v, life:450, color, size:2+Math.random()*2});
+    }
+  }
+  function spawnTrail(x,y,color='#a3ff85'){
+    if (settings.reduceMotion) return;
+    particles.push({x,y,vx:(Math.random()-0.5)*40, vy:(Math.random()-0.5)*40, life:220, color, size:2});
+  }
+  function updateParticles(dt){
+    for(let i=particles.length-1;i>=0;i--){
+      const p=particles[i];
+      p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.98; p.vy*=0.98; p.life-=dt*1000;
+      if(p.life<=0) particles.splice(i,1);
+    }
+  }
+  function drawParticles(){
+    for(const p of particles){ ctx.globalAlpha = Math.max(0, p.life/450); ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size); }
+    ctx.globalAlpha = 1;
+  }
+
+  // =================== DB (IndexedDB) ===================
+  const DB = (()=>{ let db; const req=indexedDB.open('gravity-swap',3); const ready=new Promise((resolve)=>{ req.onupgradeneeded=(e)=>{ db=e.target.result; if(!db.objectStoreNames.contains('users')){ const u=db.createObjectStore('users',{keyPath:'username'}); u.createIndex('username','username',{unique:true}); } if(!db.objectStoreNames.contains('progress')) db.createObjectStore('progress',{keyPath:['username','level']}); if(!db.objectStoreNames.contains('scores')) db.createObjectStore('scores',{keyPath:['username','stamp']}); }; req.onsuccess=(e)=>{ db=e.target.result; resolve(); }; }); function put(store,val){ return new Promise((res,rej)=>{ const tx=db.transaction(store,'readwrite'); tx.objectStore(store).put(val); tx.oncomplete=()=>res(); tx.onerror=e=>rej(e); }); } function get(store,key){ return new Promise((res,rej)=>{ const tx=db.transaction(store,'readonly'); const r=tx.objectStore(store).get(key); r.onsuccess=()=>res(r.result); r.onerror=e=>rej(e); }); } function all(store){ return new Promise((res)=>{ const tx=db.transaction(store,'readonly'); const req=tx.objectStore(store).getAll(); req.onsuccess=()=>res(req.result||[]); }); } return {ready, put, get, all}; })();
+
+  // =================== AUTH ===================
+  let currentUser = localStorage.getItem('gs_user')||'Guest'; updateWho();
+  function updateWho(){ document.getElementById('who').textContent = currentUser; }
+  async function sha256(str){ const enc=new TextEncoder().encode(str); const buf=await crypto.subtle.digest('SHA-256',enc); return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join(''); }
+  async function register(username, password){ if(username==='Guest') throw new Error('Reserved username'); await DB.ready; const exists=await DB.get('users',username); if(exists) throw new Error('User exists'); const passHash=await sha256(password); await DB.put('users',{username,passHash,createdAt:Date.now()}); return true; }
+  async function login(username, password){ await DB.ready; const u=await DB.get('users',username); if(!u) throw new Error('No such user'); const passHash=await sha256(password); if(u.passHash!==passHash) throw new Error('Wrong password'); currentUser=username; localStorage.setItem('gs_user',username); updateWho(); await refreshProgressMini(); return true; }
+  function logout(){ currentUser='Guest'; localStorage.removeItem('gs_user'); updateWho(); refreshProgressMini(); }
+
+  // =================== PROGRESS & SCORES ===================
+  async function saveProgress(levelIdx, bestTimeMs, deaths){ await DB.ready; await DB.put('progress',{username:currentUser,level:levelIdx,bestTimeMs,deaths,updatedAt:Date.now()}); await refreshProgressMini(); }
+  async function loadProgress(levelIdx){ await DB.ready; return await DB.get('progress',[currentUser,levelIdx]); }
+  async function allProgress(){ await DB.ready; const p=await DB.all('progress'); return p.filter(x=>x.username===currentUser); }
+  async function unlockedCount(){ const p=await allProgress(); let max=-1; p.forEach(r=>{ if(typeof r.bestTimeMs==='number') max=Math.max(max, r.level); }); return Math.max(1, max+2); }
+  async function saveScore(totalMs,totalDeaths){ await DB.ready; await DB.put('scores',{username:currentUser,stamp:Date.now(),totalMs,totalDeaths}); }
+  // Deduplicate by user — keep best time
+  async function getLeaderboard(mode){ await DB.ready; if(mode==='total'){
+      const scores=await DB.all('scores'); const bestByUser={};
+      for(const s of scores){ if(!(s.username in bestByUser) || s.totalMs < bestByUser[s.username].totalMs){ bestByUser[s.username]=s; } }
+      return Object.values(bestByUser).sort((a,b)=>a.totalMs-b.totalMs).slice(0,50);
+    }
+    if(mode.startsWith('level')){
+      const idx=+mode.replace('level',''); const prog=await DB.all('progress'); const best={};
+      for(const p of prog){ if(p.level!==idx || !p.bestTimeMs) continue; const row={username:p.username,totalMs:p.bestTimeMs,totalDeaths:p.deaths||0}; if(!(p.username in best) || row.totalMs<best[p.username].totalMs) best[p.username]=row; }
+      return Object.values(best).sort((a,b)=>a.totalMs-b.totalMs).slice(0,50);
+    }
+  }
+  async function trySyncScore(payload){ if(!API_BASE) return; try{ await fetch(API_BASE+'/api/score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser,...payload})}); }catch(e){} }
+
+  // =================== GAME STATE ===================
+  let mode = 'menu';
+  let state=null; let currentLevel=0; let deaths=0; let levelStartAt=performance.now(); let lastSwapAt=0; let flashUntil=0; let pressed=new Set();
+
+  // (1) Пауза/автопауза
+  let paused = false;
+  let pausedAt = 0;
+  document.addEventListener('visibilitychange', ()=>{
+    if (mode!=='menu'){
+      if (document.hidden){
+        if(!paused){ paused = true; pausedAt = performance.now(); }
+      } else if (paused){
+        const now = performance.now();
+        levelStartAt += (now - pausedAt); // замораживаем таймер
+        paused = false;
+      }
+    }
+  });
+
+  function showGameScreen(show){ document.getElementById('screenMenu').style.display = show?'none':'grid'; canvas.style.display = show?'block':'none'; }
+  function enterMenu(){ mode='menu'; showGameScreen(false); document.getElementById('levelName').textContent='Main Menu'; fitCanvas(); refreshProgressMini(); }
+  async function enterLevel(idx){ const unlock=await unlockedCount(); if(idx>=unlock){ alert('Level is locked. Complete previous one.'); return; } mode='game'; currentLevel=idx; showGameScreen(true); loadLevel(currentLevel); paused=false; }
+  function enterTutorial(){ mode = 'game'; showGameScreen(true); loadTutorial(); paused=false; }
+
+  // =================== WORLD LOADING ===================
+  function replaceAt(str,i,ch){ return str.substring(0,i)+ch+str.substring(i+1); }
+
+  function loadTutorial(){
+    keys.clear(); pressed.clear();
+    const L = tutorialLevel;
+    document.getElementById('levelName').textContent = L.name;
+
+    const rows = L.map.slice();
+    const H=rows.length, W=rows[0].length;
+    const solids=new Set(['#']);
+    const spikes=new Set(['^','v','<','>']);
+    let start={x:1,y:1}, goal={x:W-2,y:1};
+    let coins=[];
+
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+      const c=rows[y][x];
+      if(c==='S'){ start={x,y}; rows[y]=replaceAt(rows[y],x,'.'); }
+      if(c==='G'){ goal={x,y}; rows[y]=replaceAt(rows[y],x,'.'); }
+      if(c==='*'){ coins.push({x,y,collected:false}); rows[y]=replaceAt(rows[y],x,'.'); }
+    }
+
+    // (6) Маски коллизий
+    const solidMask = new Uint8Array(W*H);
+    const spikeMask = new Uint8Array(W*H);
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+      const c = L.map[y][x];
+      const i = y*W + x;
+      solidMask[i] = (c==='#')|0;
+      spikeMask[i] = ('^v<>'.includes(c))|0;
+    }
+
+    const world={W,H,rows,solids,spikes,goal,coins,solidMask,spikeMask};
+    state={
+      world,
+      tutorial: true,
+      gravIndex:0,
+      player:{x:start.x*TILE+TILE*0.1,y:start.y*TILE+TILE*0.1,w:TILE*0.8,h:TILE*0.8,vx:0,vy:0,grounded:false},
+      coinsCollected:0, finished:false, levelDeaths:0
+    };
+    document.getElementById('coins').textContent = `0/${world.coins.length}`;
+    levelStartAt=performance.now();
+    fitCanvas();
+  }
+
+  function loadLevel(idx){
+    const L = levels[idx];
+    keys.clear(); pressed.clear(); state = null;
+    document.getElementById('levelName').textContent=L.name;
+
+    const rows=L.map.slice();
+    const H=rows.length, W=rows[0].length;
+    const solids=new Set(['#']);
+    const spikes=new Set(['^','v','<','>']);
+    let start={x:1,y:1}, goal={x:W-2,y:1};
+    let coins=[];
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+      const c=rows[y][x];
+      if(c==='S'){start={x,y}; rows[y]=replaceAt(rows[y],x,'.');}
+      if(c==='G'){goal={x,y}; rows[y]=replaceAt(rows[y],x,'.');}
+      if(c==='*'){coins.push({x,y,collected:false}); rows[y]=replaceAt(rows[y],x,'.');}
+    }
+
+    // (6) Маски коллизий
+    const solidMask = new Uint8Array(W*H);
+    const spikeMask = new Uint8Array(W*H);
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+      const c = L.map[y][x];
+      const i = y*W + x;
+      solidMask[i] = (c==='#')|0;
+      spikeMask[i] = ('^v<>'.includes(c))|0;
+    }
+
+    const world={W,H,rows,solids,spikes,goal,coins,solidMask,spikeMask};
+    state={
+      world,
+      tutorial:false,
+      gravIndex:0,
+      player:{x:start.x*TILE+TILE*0.1,y:start.y*TILE+TILE*0.1,w:TILE*0.8,h:TILE*0.8,vx:0,vy:0,grounded:false},
+      coinsCollected:0, finished:false, levelDeaths:0
+    };
+    document.getElementById('coins').textContent = `0/${world.coins.length}`;
+    levelStartAt=performance.now();
+    fitCanvas();
+  }
+
+  // =================== PHYSICS & RENDER ===================
+  function rectVsWorld(x,y,w,h){
+    const {world:{W,H,solidMask,spikeMask}}=state;
+    const x0=Math.floor(x/TILE), x1=Math.floor((x+w-1)/TILE);
+    const y0=Math.floor(y/TILE), y1=Math.floor((y+h-1)/TILE);
+    let hitSolid=false, hitSpike=false;
+    for(let ty=y0; ty<=y1; ty++){
+      for(let tx=x0; tx<=x1; tx++){
+        if(tx<0||ty<0||tx>=W||ty>=H){ hitSolid = true; continue; }
+        const i = ty*W + tx;
+        if (solidMask[i]) hitSolid = true;
+        if (spikeMask[i]) hitSpike = true;
+      }
+    }
+    return {hitSolid,hitSpike};
+  }
+  function aabbOverlap(x1,y1,w1,h1, x2,y2,w2,h2){ return !(x1+w1<=x2 || x2+w2<=x1 || y1+h1<=y2 || y2+h2<=y1); }
+
+  function moveAndCollide(dt){
+    const g=GRAVITIES[state.gravIndex]; const p=state.player;
+    // gravity accel
+    p.vx+=g.x*900*dt; p.vy+=g.y*900*dt;
+    // input along surface
+    let moveDir=0; if(isDown('arrowleft')) moveDir-=1; if(isDown('arrowright')) moveDir+=1;
+    if(g.x===0){
+      const target=moveDir*SPEED; const accel=p.grounded?FRICTION:ACCEL_AIR;
+      p.vx+=(target-p.vx)*Math.min(1, accel*dt/Math.max(1,Math.abs(target-p.vx)));
+    } else {
+      const target=moveDir*SPEED; const accel=p.grounded?FRICTION:ACCEL_AIR;
+      p.vy+=(target-p.vy)*Math.min(1, accel*dt/Math.max(1,Math.abs(target-p.vy)));
+    }
+    // jump
+    if((justPressed(' ')||justPressed('arrowup'))&&p.grounded){
+      p.vx-=g.x*JUMP; p.vy-=g.y*JUMP; p.grounded=false;
+      Audio.beep(320,0.08,'triangle'); spawnBurst(p.x+p.w/2, p.y+p.h/2, '#6ee7ff', 8, 90);
+    }
+    // move & collide
+    let nx=p.x+p.vx*dt, ny=p.y+p.vy*dt;
+    let res=rectVsWorld(nx,p.y,p.w,p.h);
+    if(res.hitSolid){
+      if(p.vx>0){ const tx=Math.floor((p.x+p.w-1)/TILE); p.x=(tx+1)*TILE-p.w; }
+      else if(p.vx<0){ const tx=Math.floor(p.x/TILE); p.x=tx*TILE; }
+      p.vx=0;
+    } else { p.x=nx; }
+    res=rectVsWorld(p.x,ny,p.w,p.h);
+    if(res.hitSolid){
+      if(p.vy>0){ const ty=Math.floor((p.y+p.h-1)/TILE); p.y=(ty+1)*TILE-p.h; }
+      else if(p.vy<0){ const ty=Math.floor(p.y/TILE); p.y=ty*TILE; }
+      p.vy=0;
+    } else { p.y=ny; }
+    // grounded via small offset towards gravity
+    const eps=1; const gCheck=rectVsWorld(p.x+g.x*eps,p.y+g.y*eps,p.w,p.h); p.grounded=gCheck.hitSolid;
+    // hazards
+    const hazard=rectVsWorld(p.x,p.y,p.w,p.h).hitSpike; if(hazard) return killPlayer();
+    // coins
+    for(const c of state.world.coins){
+      if(c.collected) continue;
+      const cx=c.x*TILE+TILE*0.2, cy=c.y*TILE+TILE*0.2, cw=TILE*0.6, ch=TILE*0.6;
+      if(aabbOverlap(p.x,p.y,p.w,p.h,cx,cy,cw,ch)){
+        c.collected=true; state.coinsCollected++;
+        document.getElementById('coins').textContent = `${state.coinsCollected}/${state.world.coins.length}`;
+        Audio.coin(); spawnBurst(cx+cw/2, cy+ch/2, '#ffd166', 24, 160);
+      }
+    }
+    // goal
+    const gx=state.world.goal.x*TILE, gy=state.world.goal.y*TILE;
+    if(aabbOverlap(p.x,p.y,p.w,p.h,gx+4,gy+4,TILE-8,TILE-8)){
+      if(state.world.coins.every(c=>c.collected)) finishLevel();
+    }
+    if(Math.random()<0.2) spawnTrail(p.x+p.w/2,p.y+p.h/2,'#6ee7ff');
+  }
+
+  function isDown(k){ return keys.has(k.toLowerCase()); }
+  function justPressed(k){ k=k.toLowerCase(); const jp=isDown(k)&&!pressed.has(k); if(jp) pressed.add(k); return jp; }
+  function syncPressed(){ for(const p of Array.from(pressed)) if(!isDown(p)) pressed.delete(p); }
+  function killPlayer(){
+    deaths++; state.levelDeaths++; updateHUD(); Audio.death(); flash(180);
+    if (mode!=='menu'){ restart(); }
+  }
+  function flash(ms){ flashUntil=performance.now()+ms; }
+
+  function draw(){
+    const {world:{W,H,rows,spikes,goal,coins}, player:p}=state||{world:{W:30,H:20,rows:[],spikes:new Set(),goal:{x:0,y:0},coins:[]},player:{x:0,y:0,w:0,h:0,vx:0,vy:0}};
+    const w=W*TILE,h=H*TILE; ctx.clearRect(0,0,canvas.width,canvas.height);
+    // grid
+    ctx.save(); ctx.globalAlpha=.25; ctx.lineWidth=1;
+    ctx.beginPath(); for(let x=0;x<=w;x+=TILE){ ctx.moveTo(x,0); ctx.lineTo(x,h);} for(let y=0;y<=h;y+=TILE){ ctx.moveTo(0,y); ctx.lineTo(w,y);}
+    ctx.strokeStyle='rgba(110,231,255,0.08)'; ctx.stroke(); ctx.restore();
+    if(state){
+      // tiles
+      for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+        const t=rows[y][x];
+        if(t==='#'){
+          const X=x*TILE,Y=y*TILE;
+          const grd=ctx.createLinearGradient(X,Y,X,Y+TILE); grd.addColorStop(0,'#233153'); grd.addColorStop(1,'#18243f');
+          ctx.fillStyle=grd; ctx.fillRect(X,Y,TILE,TILE);
+          ctx.strokeStyle='rgba(255,255,255,.05)'; ctx.strokeRect(X+0.5,Y+0.5,TILE-1,TILE-1);
+        }
+        if((state.world.spikes||new Set()).has?.(t)){
+          const X=x*TILE+TILE/2,Y=y*TILE+TILE/2; ctx.save(); ctx.translate(X,Y);
+          let rot=0; if(t==='^') rot=Math.PI; if(t==='>') rot=-Math.PI/2; if(t==='<') rot=Math.PI/2; ctx.rotate(rot);
+          ctx.fillStyle='#ff5d73'; ctx.beginPath(); ctx.moveTo(-TILE*0.4,-TILE*0.2); ctx.lineTo(TILE*0.4,-TILE*0.2); ctx.lineTo(0,TILE*0.45); ctx.closePath(); ctx.fill(); ctx.restore();
+        }
+      }
+      // coins
+      for(const c of coins){
+        if(c.collected) continue;
+        const X=c.x*TILE+TILE/2,Y=c.y*TILE+TILE/2; const t=performance.now()/1000;
+        ctx.save(); ctx.translate(X, Y + Math.sin(t*3+X*0.01)*2);
+        ctx.beginPath(); ctx.arc(0,0,TILE*0.22,0,Math.PI*2); ctx.fillStyle='#ffd166'; ctx.fill();
+        ctx.lineWidth=2; ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.stroke(); ctx.restore();
+      }
+      // goal
+      { const X=goal.x*TILE+TILE/2,Y=goal.y*TILE+TILE/2; const t=performance.now()/1000;
+        ctx.save(); ctx.translate(X,Y);
+        ctx.beginPath(); ctx.arc(0,0,TILE*0.28,0,Math.PI*2); ctx.strokeStyle='#a3ff85'; ctx.lineWidth=4; ctx.globalAlpha=.95; ctx.stroke();
+        ctx.beginPath(); ctx.arc(0,0,TILE*0.18,0,Math.PI*2); ctx.strokeStyle='rgba(163,255,133,.45)'; ctx.lineWidth=3; ctx.stroke();
+        ctx.globalAlpha=.25; ctx.beginPath(); ctx.arc(0,0,TILE*0.36+Math.sin(t*4)*2,0,Math.PI*2); ctx.stroke(); ctx.restore();
+      }
+      // player
+      ctx.save(); ctx.translate(p.x+p.w/2,p.y+p.h/2);
+      const vel=Math.hypot(p.vx,p.vy); const maxTilt=0.25; const tilt=Math.atan2(p.vy,p.vx);
+      ctx.rotate(vel>10?Math.max(-maxTilt,Math.min(maxTilt,tilt*0.25)):0);
+      const grad=ctx.createLinearGradient(-p.w/2,-p.h/2,p.w/2,p.h/2); grad.addColorStop(0,'#6ee7ff'); grad.addColorStop(1,'#3b82f6');
+      ctx.fillStyle=grad; roundRect(ctx,-p.w/2,-p.h/2,p.w,p.h,6,true,false);
+      ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.arc(p.w*0.15,-p.h*0.1,3,0,Math.PI*2); ctx.fill(); ctx.restore();
+    }
+    // Tutorial overlay
+    if (state?.tutorial && !state.finished){
+      ctx.save();
+      ctx.fillStyle = 'rgba(14,21,38,0.7)'; ctx.fillRect(12,12, 420, 126);
+      ctx.fillStyle = '#e6edf3'; ctx.font = '14px Inter, system-ui, -apple-system, Segoe UI, Roboto';
+      const lines = [
+        'Welcome to GRAVITY SWAP!',
+        'Goal: collect all coins and enter the green portal.',
+        'Controls:',
+        '  Move: ← →   Jump: Space / ↑',
+        '  Set gravity: W=Up, A=Left, S=Down, D=Right',
+        'Tip: use gravity to walk on walls/ceiling.',
+      ];
+      lines.forEach((t,i)=> ctx.fillText(t, 24, 36 + i*18));
+      ctx.restore();
+    }
+    drawParticles();
+    if(performance.now()<flashUntil){ ctx.save(); ctx.fillStyle='rgba(255,93,115,.25)'; ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight); ctx.restore(); }
+  }
+  function roundRect(ctx,x,y,w,h,r,fill,stroke){
+    ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h);
+    ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+    if(fill) ctx.fill(); if(stroke) ctx.stroke();
+  }
+
+  // =================== FINISH & HUD ===================
+  async function finishLevel(){
+    state.finished = true;
+    Audio.portal();
+    spawnBurst(state.player.x+state.player.w/2, state.player.y+state.player.h/2, '#a3ff85', 44, 200);
+
+    const elapsed = performance.now() - levelStartAt;
+    const inTut = !!state?.tutorial;
+    if (!inTut) {
+      const prev = await loadProgress(currentLevel);
+      const best = !prev || elapsed < prev.bestTimeMs;
+      await saveProgress(currentLevel, best ? elapsed : (prev?.bestTimeMs || elapsed), state.levelDeaths);
+    }
+
+    const finishedAll = !inTut && currentLevel === levels.length - 1;
+    const title = inTut ? 'Tutorial' : `Level ${currentLevel+1}`;
+    const msg = `${title}: time <b>${(elapsed/1000).toFixed(2)}s</b>, deaths <b>${state.levelDeaths}</b>`;
+    document.getElementById('finishStats').innerHTML = msg + (finishedAll ? '<br>All levels complete — submit total in Leaderboard.' : '');
+
+    document.getElementById('nextLvl').textContent = inTut ? 'Start Level 1 (N)' : 'Next Level (N)';
+
+    showModal('finishModal', true);
+
+    if (finishedAll){
+      let total=0,d=0;
+      for(let i=0;i<levels.length;i++){ const p=await loadProgress(i); total+=(p?.bestTimeMs||0); d+=(p?.deaths||0); }
+      await saveScore(total,d);
+      trySyncScore({totalMs:total,totalDeaths:d});
+    }
+  }
+
+  function updateHUD(){ const g=GRAVITIES[state?.gravIndex||0]; document.getElementById('grav').textContent=g.name; document.getElementById('deaths').textContent=deaths; }
+
+  // =================== LOOP ===================
+  let last=performance.now();
+  function frame(now){
+    const dt = Math.min(1/30,(now-last)/1000);
+    last = now;
+
+    if(state && !state.finished && mode!=='menu' && !paused){ moveAndCollide(dt); }
+    updateParticles(dt);
+    syncPressed();
+    draw();
+    if(mode!=='menu'){
+      const t = Math.max(0,(now - levelStartAt)/1000);
+      document.getElementById('time').textContent = t.toFixed(2);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // =================== UI HELPERS ===================
+  function showModal(id,show){
+    const el = document.getElementById(id);
+    el.classList.toggle('show', !!show);
+    if(show){
+      const first = el.querySelector('button, [href], input, select') || el;
+      first.focus?.({preventScroll:true});
+      const onKey = (e)=>{ if(e.key==='Escape'){ el.classList.remove('show'); document.removeEventListener('keydown', onKey); } };
+      document.addEventListener('keydown', onKey);
+    }
+  }
+
+  // =================== EVENTS ===================
+  window.addEventListener('keydown',(e)=>{
+    const k = e.key.toLowerCase();
+    if (k === 'escape'){ enterMenu(); showModal('selectModal',false); showModal('finishModal',false); }
+
+    if (mode === 'menu') return; // в меню горячие клавиши отключены
+
+    // (1) toggle pause
+    if (k==='p'){
+      paused = !paused;
+      if (paused){ pausedAt = performance.now(); }
+      else { const now = performance.now(); levelStartAt += (now - pausedAt); }
+      Audio.click();
+      return;
+    }
+
+    if (k==='r'){ restart(); }
+    if (k==='n' && state?.finished){
+      showModal('finishModal',false);
+      if (state?.tutorial) enterLevel(0);
+      else if (currentLevel < levels.length-1) enterLevel(currentLevel+1);
+    }
+    // gravity set: WASD only (no cycling)
+    if (k==='w') setGravityTo(2); // Up
+    if (k==='a') setGravityTo(1); // Left
+    if (k==='s') setGravityTo(0); // Down
+    if (k==='d') setGravityTo(3); // Right
+  });
+
+  // (7) Единый reset
+  function restart(){
+    if (mode!=='menu'){
+      if (state?.tutorial) loadTutorial(); else loadLevel(currentLevel);
+      flash(120); Audio.click();
+    }
+  }
+  document.getElementById('reset').addEventListener('click', restart);
+
+  // Menu buttons
+  document.getElementById('playBtn').addEventListener('click', async()=>{ const unlock=await unlockedCount(); enterLevel(unlock-1); });
+  document.getElementById('levelSelectBtn').addEventListener('click', async()=>{ await renderLevelSelect(); showModal('selectModal',true); });
+  document.getElementById('leaderBtn').addEventListener('click', async()=>{ await renderBoardModes(); await renderBoard(); showModal('boardModal',true); });
+  document.getElementById('statsBtn').addEventListener('click', async()=>{ await renderStats(); showModal('statsModal',true); });
+  document.getElementById('tutorialBtn').addEventListener('click', ()=> enterTutorial());
+
+  document.getElementById('selectClose').addEventListener('click', ()=> showModal('selectModal',false));
+  document.getElementById('statsClose').addEventListener('click', ()=> showModal('statsModal',false));
+
+  // Finish modal buttons (mouse support)
+  document.getElementById('replayLvl').addEventListener('click', ()=>{
+    showModal('finishModal', false);
+    restart();
+  });
+  document.getElementById('nextLvl').addEventListener('click', ()=>{
+    showModal('finishModal', false);
+    if (state?.tutorial) enterLevel(0);
+    else if (currentLevel < levels.length-1) enterLevel(currentLevel+1);
+    Audio.click();
+  });
+  document.getElementById('toMenu').addEventListener('click', ()=>{
+    showModal('finishModal', false);
+    enterMenu();
+    Audio.click();
+  });
+
+  // Auth
+  document.getElementById('btnAuth').addEventListener('click', ()=>{ const logged=currentUser!=='Guest'; document.getElementById('btnLogout').style.display=logged?'inline-flex':'none'; showModal('authModal',true); Audio.click(); });
+  document.getElementById('btnLogout').addEventListener('click', ()=>{ logout(); showModal('authModal',false); });
+  document.getElementById('btnCloseAuth').addEventListener('click', ()=> showModal('authModal',false));
+  document.getElementById('btnRegister').addEventListener('click', async()=>{ const u=document.getElementById('iUser').value.trim(); const p=document.getElementById('iPass').value; if(!u||!p) return alert('Enter username & password'); try{ await register(u,p); alert('Registered. Now sign in.'); }catch(e){ alert(e.message||'Register failed'); } });
+  document.getElementById('btnLogin').addEventListener('click', async()=>{ const u=document.getElementById('iUser').value.trim(); const p=document.getElementById('iPass').value; if(!u||!p) return alert('Enter username & password'); try{ await login(u,p); showModal('authModal',false); }catch(e){ alert(e.message||'Login failed'); } });
+
+  // Leaderboard
+  document.getElementById('btnBoard').addEventListener('click', async()=>{ await renderBoardModes(); await renderBoard(); showModal('boardModal',true); Audio.click(); });
+  document.getElementById('boardClose').addEventListener('click', ()=>showModal('boardModal',false));
+  document.getElementById('boardMode').addEventListener('change', renderBoard);
+
+  async function renderBoardModes(){ const sel=document.getElementById('boardMode'); sel.innerHTML = '<option value="total">Fastest Total (all levels)</option>' + levels.map((_,i)=>`<option value="level${i}">Best Level ${i+1} time</option>`).join(''); }
+  async function renderBoard(){ const mode=document.getElementById('boardMode').value; const rows=await getLeaderboard(mode); let html='<table><thead><tr><th>#</th><th>User</th><th>Time</th><th>Deaths</th></tr></thead><tbody>'; rows.forEach((r,i)=>{ html+=`<tr><td>${i+1}</td><td>${escapeHtml(r.username)}</td><td>${(r.totalMs/1000).toFixed(2)}s</td><td>${r.totalDeaths}</td></tr>`; }); if(!rows.length) html+='<tr><td colspan="4" style="color:#9aa4b2">No records yet — finish all levels to submit.</td></tr>'; html+='</tbody></table>'; document.getElementById('boardTableWrap').innerHTML=html; }
+
+  function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c])); }
+
+  async function renderLevelSelect(){ const grid=document.getElementById('levelsGrid'); const unlock=await unlockedCount(); grid.innerHTML = levels.map((L,i)=>{ const open = i < unlock; return `<button data-i="${i}" class="ghost" style="justify-content:flex-start; gap:8px; ${open?'':'opacity:.5; cursor:not-allowed;'}">${open?'🔓':'🔒'} Level ${i+1}: ${escapeHtml(L.name)}</button>`; }).join(''); grid.querySelectorAll('button').forEach(btn=>{ btn.addEventListener('click',()=>{ const i=+btn.getAttribute('data-i'); if(i<unlock){ showModal('selectModal',false); enterLevel(i); } else { Audio.click(); } }); }); }
+
+  async function renderStats(){ const wrap=document.getElementById('statsWrap'); const data = await allProgress(); const map=new Map(); data.filter(d=>d.username===currentUser).forEach(d=>{ map.set(d.level, d); }); let html='<table><thead><tr><th>#</th><th>Level</th><th>Best time</th><th>Deaths</th></tr></thead><tbody>'; for(let i=0;i<levels.length;i++){ const r=map.get(i); html+=`<tr><td>${i+1}</td><td>${escapeHtml(levels[i].name)}</td><td>${r? (r.bestTimeMs/1000).toFixed(2)+'s':'—'}</td><td>${r? (r.deaths||0):'—'}</td></tr>`; } html+='</tbody></table>'; wrap.innerHTML=html; }
+
+  async function refreshProgressMini(){ const unlock=await unlockedCount(); const done=unlock-1; const total=levels.length; const el=document.getElementById('progressMini'); el.textContent = `${currentUser}: unlocked ${done}/${total} levels`; }
+
+  // =================== GRAVITY CONTROLS ===================
+  function setGravityTo(index){
+    if (mode === 'menu') return;
+    const now=performance.now();
+    if (now-lastSwapAt<SWAP_COOLDOWN) return;
+    lastSwapAt=now; state.gravIndex=index; updateHUD(); Audio.whoosh();
+  }
+
+  // =================== INIT ===================
+  requestAnimationFrame(frame); updateHUD(); document.body.addEventListener('click', ()=>Audio.resume(), {once:true}); enterMenu();
+
+  // Settings UI: toggleSound
+  const toggleSoundEl = document.getElementById('toggleSound');
+  if (toggleSoundEl){
+    const syncIcon = ()=> toggleSoundEl.textContent = settings.mute ? '🔇' : '🔊';
+    syncIcon();
+    toggleSoundEl.addEventListener('click', ()=>{
+      Audio.setMute(!settings.mute);
+      syncIcon();
+      Audio.click();
+    });
+  }
+})();
+</script>
+</body>
+</html>

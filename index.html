@@ -411,8 +411,12 @@
   // =================== SETTINGS ===================
   const SETTINGS_KEY = 'gs_settings';
   let settings = { mute:false, reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches };
-  try{ Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')); }catch(e){}
-  const saveSettings = ()=> localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (e) {}
+  // Всегда стартуем со звуком включённым. (Мьют нужен только для паузы.)
+  settings.mute = false;
+  const saveSettings = () => localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  saveSettings(); // сразу перезапишем старое mute:true, если оно вдруг было
+
 
   // =================== AUDIO ===================
   const Audio = (()=>{
@@ -430,6 +434,10 @@
     function setMute(v){ settings.mute = !!v; master.gain.value = settings.mute ? 0 : 0.3; saveSettings(); }
     return {beep, chord, click, coin, whoosh, death, portal, resume, setMute};
   })();
+  // На любой пользовательский ввод будим аудио-контекст
+  const resumeAudioGesture = () => Audio.resume();
+  window.addEventListener('pointerdown', resumeAudioGesture);
+  window.addEventListener('keydown', resumeAudioGesture);
 
   // =================== PARTICLES ===================
   const particles = [];
@@ -470,7 +478,13 @@
   async function register(username, password){ if(username==='Guest') throw new Error('Reserved username'); await DB.ready; const exists=await DB.get('users',username); if(exists) throw new Error('User exists'); const passHash=await sha256(password); await DB.put('users',{username,passHash,createdAt:Date.now()}); return true; }
   async function login(username, password){ await DB.ready; const u=await DB.get('users',username); if(!u) throw new Error('No such user'); const passHash=await sha256(password); if(u.passHash!==passHash) throw new Error('Wrong password'); currentUser=username; localStorage.setItem('gs_user',username); updateWho(); await refreshProgressMini(); return true; }
   function logout(){ currentUser='Guest'; localStorage.removeItem('gs_user'); updateWho(); refreshProgressMini(); }
-
+  function requireAuth(){
+    if (currentUser === 'Guest'){
+      showModal('authModal', true);
+      return true; // доступ запрещён
+    }
+    return false;
+  }
   // =================== PROGRESS & SCORES ===================
   async function saveProgress(levelIdx, bestTimeMs, deaths){ await DB.ready; await DB.put('progress',{username:currentUser,level:levelIdx,bestTimeMs,deaths,updatedAt:Date.now()}); await refreshProgressMini(); }
   async function loadProgress(levelIdx){ await DB.ready; return await DB.get('progress',[currentUser,levelIdx]); }
@@ -512,8 +526,17 @@
     document.getElementById('hud').style.display = show?'flex':'none'; // hide HUD in menu
   }
   function enterMenu(){ mode='menu'; showGameScreen(false); document.getElementById('levelName').textContent='Main Menu'; fitCanvas(); refreshProgressMini(); }
-  async function enterLevel(idx){ const unlock=await unlockedCount(); if(idx>=unlock){ alert('Level is locked. Complete previous one.'); return; } mode='game'; currentLevel=idx; showGameScreen(true); loadLevel(currentLevel); paused=false; }
-  function enterTutorial(){ mode = 'game'; showGameScreen(true); loadTutorial(); paused=false; }
+  async function enterLevel(idx){
+    if (requireAuth()) return;
+    const unlock = await unlockedCount();
+    if (idx >= unlock){ alert('Level is locked. Complete previous one.'); return; }
+    mode='game'; currentLevel=idx; showGameScreen(true); loadLevel(currentLevel); paused=false;
+  }
+  function enterTutorial(){
+    if (requireAuth()) return;
+    mode='game'; showGameScreen(true); loadTutorial(); paused=false;
+  }
+
 
   // =================== WORLD LOADING ===================
   function replaceAt(str,i,ch){ return str.substring(0,i)+ch+str.substring(i+1); }
@@ -725,11 +748,23 @@
   document.getElementById('reset').addEventListener('click', restart);
 
   // Menu buttons
-  document.getElementById('playBtn').addEventListener('click', async()=>{ const unlock=await unlockedCount(); enterLevel(unlock-1); });
-  document.getElementById('levelSelectBtn').addEventListener('click', async()=>{ await renderLevelSelect(); showModal('selectModal',true); });
+  document.getElementById('playBtn').addEventListener('click', async()=>{
+    if (requireAuth()) return;
+    const unlock=await unlockedCount(); enterLevel(unlock-1);
+  });
+  document.getElementById('levelSelectBtn').addEventListener('click', async()=>{
+    if (requireAuth()) return;
+    await renderLevelSelect(); showModal('selectModal',true);
+  });
   document.getElementById('leaderBtn').addEventListener('click', async()=>{ await renderBoardModes(); await renderBoard(); showModal('boardModal',true); });
-  document.getElementById('statsBtn').addEventListener('click', async()=>{ await renderStats(); showModal('statsModal',true); });
-  document.getElementById('tutorialBtn').addEventListener('click', ()=> enterTutorial());
+  document.getElementById('statsBtn').addEventListener('click', async()=>{
+    if (requireAuth()) return;
+    await renderStats(); showModal('statsModal',true);
+  });
+  document.getElementById('tutorialBtn').addEventListener('click', ()=>{
+    if (requireAuth()) return;
+    enterTutorial();
+  });
 
   document.getElementById('selectClose').addEventListener('click', ()=> showModal('selectModal',false));
   document.getElementById('statsClose').addEventListener('click', ()=> showModal('statsModal',false));
